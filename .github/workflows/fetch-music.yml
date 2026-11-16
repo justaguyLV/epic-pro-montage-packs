@@ -1,0 +1,32 @@
+name: Fetch Music
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download CC BY 4.0 tracks (Kevin MacLeod, incompetech.com)
+        run: |
+          mkdir -p music
+          for t in "Hyperfun" "Newer Wave" "Cipher" "Digital Lemonade" "Funkorama" "Pixelland" "Eternal Hope" "Aggressor" "Cut and Run" "Faster Does It" "Monkeys Spinning Monkeys" "Scheming Weasel faster" "Impact Moderato"; do
+            f="music/$(echo "$t" | tr ' ' '_').mp3"
+            url="https://incompetech.com/music/royalty-free/mp3-royaltyfree/$(echo "$t" | sed 's/ /%20/g').mp3"
+            if curl -fsSL --retry 2 -A "Mozilla/5.0" -o "$f" "$url" && [ "$(stat -c%s "$f")" -gt 100000 ]; then
+              echo "OK   $t ($(du -h "$f" | cut -f1))"
+              echo "- \"$t\" Kevin MacLeod (incompetech.com), licensed under Creative Commons: By Attribution 4.0 (http://creativecommons.org/licenses/by/4.0/)" >> credits.tmp
+            else
+              echo "FAIL $t"; rm -f "$f"
+            fi
+          done
+          { echo "# Music Credits"; echo; echo "All tracks below are CC BY 4.0. Credit is required when you use them in a video:"; echo; cat credits.tmp; } > MUSIC_CREDITS.md
+          rm credits.tmp
+      - name: Commit
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add music MUSIC_CREDITS.md
+          git commit -m "Add CC BY 4.0 music" || echo "nothing"
+          git push
